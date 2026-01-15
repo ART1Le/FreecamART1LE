@@ -267,7 +267,10 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-    -- Zoom Control via Mouse Wheel
+    -- Jika Freecam mati, jangan jalankan logika zoom custom
+    if not freecamEnabled then return end
+    
+    -- Zoom Control via Mouse Wheel (Hanya jalan saat Freecam ON)
     if input.UserInputType == Enum.UserInputType.MouseWheel then
         -- Scroll up = Zoom In (Decrease FOV), Scroll down = Zoom Out (Increase FOV)
         local zoomDelta = input.Position.Z * 2
