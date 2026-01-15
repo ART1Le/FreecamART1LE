@@ -40,8 +40,6 @@ local sensitivity = 1.5
 local pan = Vector2.new(0, 0)
 local hiddenGuis = {}
 local defaultFOV = 70
-local originalWalkspeed = 16
-local originalJumpPower = 50
 
 -- UI HELPERS
 local function createRound(parent, radius)
@@ -217,23 +215,12 @@ ToggleBtn.MouseButton1Click:Connect(function()
     ToggleBtn.Text = freecamEnabled and "Freecam: ON" or "Freecam: OFF"
     ToggleBtn.BackgroundColor3 = freecamEnabled and Theme.Colors.ToggleOn or Theme.Colors.Button
     
-    local character = localPlayer.Character
-    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-
     if freecamEnabled then
         camera.CameraType = Enum.CameraType.Scriptable
         pan = Vector2.new(camera.CFrame:ToOrientation())
         
-        -- Lock Karakter Sepenuhnya
+        -- Matikan Kontrol Karakter
         Controls:Disable() 
-        if humanoid then
-            originalWalkspeed = humanoid.WalkSpeed
-            originalJumpPower = humanoid.JumpPower
-            humanoid.WalkSpeed = 0
-            humanoid.JumpPower = 0
-            humanoid.PlatformStand = true -- Mencegah animasi Q/E di beberapa game
-        end
-        
         setOtherUIVisible(false) 
     else
         camera.CameraType = Enum.CameraType.Custom
@@ -242,14 +229,8 @@ ToggleBtn.MouseButton1Click:Connect(function()
         FollowBtn.Text = "Follow Target: OFF"
         FollowBtn.BackgroundColor3 = Theme.Colors.Button
         
-        -- Kembalikan Karakter
+        -- Aktifkan Kembali Kontrol Karakter
         Controls:Enable() 
-        if humanoid then
-            humanoid.WalkSpeed = originalWalkspeed
-            humanoid.JumpPower = originalJumpPower
-            humanoid.PlatformStand = false
-        end
-        
         setOtherUIVisible(true) 
         updateSpeedLabel()
     end
@@ -272,7 +253,7 @@ end)
 
 -- INPUT LOGIC
 UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe and input.KeyCode ~= Enum.KeyCode.N then return end
+    if gpe and input.KeyCode ~= Enum.KeyCode.N then return end -- Biarkan N menembus GPE untuk buka menu
     
     if input.KeyCode == Enum.KeyCode.N then
         ScreenGui.Enabled = not ScreenGui.Enabled
@@ -288,6 +269,7 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 end)
 
 UserInputService.InputChanged:Connect(function(input)
+    -- Logika Zoom: Hanya jalan saat Freecam ON
     if not freecamEnabled then return end
     
     if input.UserInputType == Enum.UserInputType.MouseWheel then
