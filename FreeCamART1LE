@@ -37,7 +37,9 @@ local followEnabled = false
 local targetPlayer = nil
 local cameraSpeed = 1.0
 local sensitivity = 1.5
+local smoothness = 0.1 -- Semakin kecil semakin halus (0.05 - 0.2)
 local pan = Vector2.new(0, 0)
+local targetCFrame = camera.CFrame
 local hiddenGuis = {}
 local defaultFOV = 70
 
@@ -180,33 +182,39 @@ RunService.RenderStepped:Connect(function(dt)
     if not freecamEnabled then return end
     
     local moveVector = Vector3.new(0, 0, 0)
-    if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + camera.CFrame.LookVector end
-    if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector - camera.CFrame.LookVector end
-    if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector - camera.CFrame.RightVector end
-    if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + camera.CFrame.RightVector end
+    
+    -- Horizontal Movement
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + targetCFrame.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector - targetCFrame.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector - targetCFrame.RightVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + targetCFrame.RightVector end
+    
+    -- Vertical Movement (Q & E)
     if UserInputService:IsKeyDown(Enum.KeyCode.E) then moveVector = moveVector + Vector3.new(0, 1, 0) end
     if UserInputService:IsKeyDown(Enum.KeyCode.Q) then moveVector = moveVector - Vector3.new(0, 1, 0) end
     
     local multiplier = UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) and 4 or 1
     local finalSpeed = (cameraSpeed * 50) * multiplier
     
+    -- Update Target Position
+    local nextPos = targetCFrame.Position + (moveVector * finalSpeed * dt)
+    
     if followEnabled and targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local targetHrp = targetPlayer.Character.HumanoidRootPart
-        local currentPos = camera.CFrame.Position
-        local nextPos = currentPos + (moveVector * finalSpeed * dt)
-        camera.CFrame = CFrame.lookAt(nextPos, targetHrp.Position)
+        targetCFrame = CFrame.lookAt(nextPos, targetHrp.Position)
     else
-        camera.CFrame = camera.CFrame + (moveVector * finalSpeed * dt)
-        
         if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
             UserInputService.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
             local delta = UserInputService:GetMouseDelta()
             pan = pan - (delta * sensitivity * 0.1)
-            camera.CFrame = CFrame.new(camera.CFrame.Position) * CFrame.fromOrientation(math.rad(pan.Y), math.rad(pan.X), 0)
         else
             UserInputService.MouseBehavior = Enum.MouseBehavior.Default
         end
+        targetCFrame = CFrame.new(nextPos) * CFrame.fromOrientation(math.rad(pan.Y), math.rad(pan.X), 0)
     end
+    
+    -- SMOOTH LERP: Menggerakkan kamera asli ke targetCFrame secara halus
+    camera.CFrame = camera.CFrame:Lerp(targetCFrame, smoothness)
 end)
 
 -- BUTTON ACTIONS
@@ -215,12 +223,16 @@ ToggleBtn.MouseButton1Click:Connect(function()
     ToggleBtn.Text = freecamEnabled and "Freecam: ON" or "Freecam: OFF"
     ToggleBtn.BackgroundColor3 = freecamEnabled and Theme.Colors.ToggleOn or Theme.Colors.Button
     
+    local character = localPlayer.Character
+    local hrp = character and character:FindFirstChild("HumanoidRootPart")
+
     if freecamEnabled then
+        targetCFrame = camera.CFrame
         camera.CameraType = Enum.CameraType.Scriptable
         pan = Vector2.new(camera.CFrame:ToOrientation())
         
-        -- Matikan Kontrol Karakter
         Controls:Disable() 
+        if hrp then hrp.Anchored = true end 
         setOtherUIVisible(false) 
     else
         camera.CameraType = Enum.CameraType.Custom
@@ -229,8 +241,8 @@ ToggleBtn.MouseButton1Click:Connect(function()
         FollowBtn.Text = "Follow Target: OFF"
         FollowBtn.BackgroundColor3 = Theme.Colors.Button
         
-        -- Aktifkan Kembali Kontrol Karakter
         Controls:Enable() 
+        if hrp then hrp.Anchored = false end 
         setOtherUIVisible(true) 
         updateSpeedLabel()
     end
@@ -253,7 +265,7 @@ end)
 
 -- INPUT LOGIC
 UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe and input.KeyCode ~= Enum.KeyCode.N then return end -- Biarkan N menembus GPE untuk buka menu
+    if gpe and input.KeyCode ~= Enum.KeyCode.N then return end 
     
     if input.KeyCode == Enum.KeyCode.N then
         ScreenGui.Enabled = not ScreenGui.Enabled
@@ -269,7 +281,6 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-    -- Logika Zoom: Hanya jalan saat Freecam ON
     if not freecamEnabled then return end
     
     if input.UserInputType == Enum.UserInputType.MouseWheel then
