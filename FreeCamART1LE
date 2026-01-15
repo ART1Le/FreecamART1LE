@@ -218,14 +218,18 @@ ToggleBtn.MouseButton1Click:Connect(function()
     if freecamEnabled then
         camera.CameraType = Enum.CameraType.Scriptable
         pan = Vector2.new(camera.CFrame:ToOrientation())
+        
+        -- Matikan Kontrol Karakter
         Controls:Disable() 
         setOtherUIVisible(false) 
     else
         camera.CameraType = Enum.CameraType.Custom
-        camera.FieldOfView = defaultFOV -- Reset Zoom FOV ke normal
+        camera.FieldOfView = defaultFOV 
         followEnabled = false
         FollowBtn.Text = "Follow Target: OFF"
         FollowBtn.BackgroundColor3 = Theme.Colors.Button
+        
+        -- Aktifkan Kembali Kontrol Karakter
         Controls:Enable() 
         setOtherUIVisible(true) 
         updateSpeedLabel()
@@ -249,14 +253,12 @@ end)
 
 -- INPUT LOGIC
 UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
+    if gpe and input.KeyCode ~= Enum.KeyCode.N then return end -- Biarkan N menembus GPE untuk buka menu
     
-    -- Toggle Menu Visibility
     if input.KeyCode == Enum.KeyCode.N then
         ScreenGui.Enabled = not ScreenGui.Enabled
     end
 
-    -- Speed Control via Arrows
     if input.KeyCode == Enum.KeyCode.Up then
         cameraSpeed = math.clamp(cameraSpeed + 0.1, 0.1, 20)
         updateSpeedLabel()
@@ -267,11 +269,10 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-    -- Logika Zoom: Hanya aktif jika Freecam menyala
+    -- Logika Zoom: Hanya jalan saat Freecam ON
     if not freecamEnabled then return end
     
     if input.UserInputType == Enum.UserInputType.MouseWheel then
-        -- Mengatur FOV (Field of View) saat Freecam ON
         local zoomDelta = input.Position.Z * 2
         camera.FieldOfView = math.clamp(camera.FieldOfView - zoomDelta, 5, 120)
         updateSpeedLabel()
