@@ -2,7 +2,6 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
 
 local localPlayer = Players.LocalPlayer
@@ -34,89 +33,112 @@ local Theme = {
 -- VARIABLES
 local freecamEnabled = false
 local followEnabled = false
-local targetPlayer = nil
+local symLockEnabled = false
+local followMode = "OFF"
+local targetPlayer1 = nil
+local targetPlayer2 = nil
 local cameraSpeed = 1.0
 local sensitivity = 1.5
-local smoothness = 0.1 -- Semakin kecil semakin halus (0.05 - 0.2)
+local normalSmooth = 0.15
+local shiftSmooth = 0.07
+
 local pan = Vector2.new(0, 0)
 local targetCFrame = camera.CFrame
+local defaultFOV = 70 -- Standar Roblox
+local targetFOV = defaultFOV 
 local hiddenGuis = {}
-local defaultFOV = 70
 
 -- UI HELPERS
-local function createRound(parent, radius)
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, radius or Theme.Radius)
-    c.Parent = parent
-end
-
-local function createStroke(parent, color, thickness)
-    local s = Instance.new("UIStroke")
-    s.Thickness = thickness or 1
-    s.Color = color or Theme.Colors.Border
-    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    s.Parent = parent
-end
+local function createRound(p, r) local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, r or Theme.Radius) c.Parent = p end
+local function createStroke(p, c, t) local s = Instance.new("UIStroke") s.Thickness = t or 1 s.Color = c or Theme.Colors.Border s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border s.Parent = p end
 
 -- GUI SETUP
 local ScreenGui = Instance.new("ScreenGui", localPlayer:WaitForChild("PlayerGui"))
-ScreenGui.Name = "CinematicFreecam_Art1le"
+ScreenGui.Name = "CinematicFreecam_Art1le_Pro"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.IgnoreGuiInset = true 
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 260, 0, 280)
-MainFrame.Position = UDim2.new(0.5, -130, 0.5, -140)
+MainFrame.Size = UDim2.new(0, 260, 0, 420) 
+MainFrame.Position = UDim2.new(0.5, -130, 0.5, -210)
 MainFrame.BackgroundColor3 = Theme.Colors.Background
 createRound(MainFrame)
 createStroke(MainFrame)
 
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 40)
-Title.Text = "FREECAM ART1LE"
+Title.Text = "FREECAM ART1LE PRO"
 Title.Font = Theme.Fonts.Title
 Title.TextColor3 = Theme.Colors.Text
 Title.TextSize = 16
 Title.BackgroundTransparency = 1
 
+local NameInput1 = Instance.new("TextBox", MainFrame)
+NameInput1.Size = UDim2.new(0.85, 0, 0, 30)
+NameInput1.Position = UDim2.new(0.075, 0, 0.12, 0)
+NameInput1.PlaceholderText = "Main Target (Player 1)..."
+NameInput1.Font = Theme.Fonts.Body
+NameInput1.TextColor3 = Theme.Colors.Text
+NameInput1.BackgroundColor3 = Theme.Colors.Input
+NameInput1.TextSize = 12
+createRound(NameInput1)
+createStroke(NameInput1)
+
+local NameInput2 = Instance.new("TextBox", MainFrame)
+NameInput2.Size = UDim2.new(0.85, 0, 0, 30)
+NameInput2.Position = UDim2.new(0.075, 0, 0.20, 0)
+NameInput2.PlaceholderText = "Second Target (for Sym)..."
+NameInput2.Font = Theme.Fonts.Body
+NameInput2.TextColor3 = Theme.Colors.Text
+NameInput2.BackgroundColor3 = Theme.Colors.Input
+NameInput2.TextSize = 12
+createRound(NameInput2)
+createStroke(NameInput2)
+
 local ToggleBtn = Instance.new("TextButton", MainFrame)
-ToggleBtn.Size = UDim2.new(0.85, 0, 0, 40)
-ToggleBtn.Position = UDim2.new(0.075, 0, 0.15, 0)
+ToggleBtn.Size = UDim2.new(0.85, 0, 0, 35)
+ToggleBtn.Position = UDim2.new(0.075, 0, 0.30, 0)
 ToggleBtn.Text = "Freecam: OFF"
 ToggleBtn.Font = Theme.Fonts.Body
 ToggleBtn.TextColor3 = Theme.Colors.Text
 ToggleBtn.BackgroundColor3 = Theme.Colors.Button
-ToggleBtn.TextSize = 16
 createRound(ToggleBtn)
 createStroke(ToggleBtn)
 
-local NameInput = Instance.new("TextBox", MainFrame)
-NameInput.Size = UDim2.new(0.85, 0, 0, 35)
-NameInput.Position = UDim2.new(0.075, 0, 0.35, 0)
-NameInput.PlaceholderText = "Target Display Name..."
-NameInput.Text = ""
-NameInput.Font = Theme.Fonts.Body
-NameInput.TextColor3 = Theme.Colors.Text
-NameInput.BackgroundColor3 = Theme.Colors.Input
-NameInput.TextSize = 14
-createRound(NameInput)
-createStroke(NameInput)
-
 local FollowBtn = Instance.new("TextButton", MainFrame)
 FollowBtn.Size = UDim2.new(0.85, 0, 0, 35)
-FollowBtn.Position = UDim2.new(0.075, 0, 0.5, 0)
-FollowBtn.Text = "Follow Target: OFF"
+FollowBtn.Position = UDim2.new(0.075, 0, 0.40, 0)
+FollowBtn.Text = "One-Shot Follow: OFF"
 FollowBtn.Font = Theme.Fonts.Body
 FollowBtn.TextColor3 = Theme.Colors.Text
 FollowBtn.BackgroundColor3 = Theme.Colors.Button
-FollowBtn.TextSize = 14
 createRound(FollowBtn)
 createStroke(FollowBtn)
 
+local ControllFollowBtn = Instance.new("TextButton", MainFrame)
+ControllFollowBtn.Size = UDim2.new(0.85, 0, 0, 35)
+ControllFollowBtn.Position = UDim2.new(0.075, 0, 0.50, 0)
+ControllFollowBtn.Text = "Focus: OFF"
+ControllFollowBtn.Font = Theme.Fonts.Body
+ControllFollowBtn.TextColor3 = Theme.Colors.Text
+ControllFollowBtn.BackgroundColor3 = Theme.Colors.Button
+createRound(ControllFollowBtn)
+createStroke(ControllFollowBtn)
+
+local SymmetricalBtn = Instance.new("TextButton", MainFrame)
+SymmetricalBtn.Size = UDim2.new(0.85, 0, 0, 35)
+SymmetricalBtn.Position = UDim2.new(0.075, 0, 0.60, 0)
+SymmetricalBtn.Text = "Symmetrical Lock: OFF"
+SymmetricalBtn.Font = Theme.Fonts.Body
+SymmetricalBtn.TextColor3 = Theme.Colors.Text
+SymmetricalBtn.BackgroundColor3 = Theme.Colors.Button
+createRound(SymmetricalBtn)
+createStroke(SymmetricalBtn)
+
 local SpeedLabel = Instance.new("TextLabel", MainFrame)
 SpeedLabel.Size = UDim2.new(1, 0, 0, 25)
-SpeedLabel.Position = UDim2.new(0, 0, 0.65, 0)
-SpeedLabel.Text = "Speed: " .. string.format("%.1f", cameraSpeed) .. " | Zoom: " .. math.floor(camera.FieldOfView)
+SpeedLabel.Position = UDim2.new(0, 0, 0.72, 0)
+SpeedLabel.Text = "Speed: 1.0 | Zoom: 70"
 SpeedLabel.Font = Theme.Fonts.Body
 SpeedLabel.TextColor3 = Theme.Colors.Text
 SpeedLabel.TextSize = 13
@@ -124,168 +146,166 @@ SpeedLabel.BackgroundTransparency = 1
 
 local HintLabel = Instance.new("TextLabel", MainFrame)
 HintLabel.Size = UDim2.new(1, 0, 0, 50)
-HintLabel.Position = UDim2.new(0, 0, 0.78, 0)
-HintLabel.Text = "N: Hide UI | Arrows: Speed\nScroll: Zoom In/Out | L: Photo\nFREECAM BY ART1LE"
+HintLabel.Position = UDim2.new(0, 0, 0.85, 0)
+HintLabel.Text = "N: Hide UI | Arrows: Speed\nScroll: Zoom | L Shift: Cinematic\nFREECAM BY ART1LE"
 HintLabel.Font = Theme.Fonts.Body
 HintLabel.TextColor3 = Theme.Colors.Accent
 HintLabel.TextSize = 11
 HintLabel.BackgroundTransparency = 1
 
--- DRAGGABLE
-local dragging, dragStart, startPos
-MainFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true dragStart = input.Position startPos = MainFrame.Position
-    end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
-end)
-
--- LOGIC UTILS
-local function findTargetByDisplayName(name)
-    if name == "" then return nil end
-    for _, p in ipairs(Players:GetPlayers()) do
-        if string.find(string.lower(p.DisplayName), string.lower(name)) then return p end
-    end
-    return nil
-end
-
+-- HIDE GUI LOGIC
 local function setOtherUIVisible(visible)
     pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, visible) end)
     if not visible then
         for _, gui in ipairs(localPlayer.PlayerGui:GetChildren()) do
             if gui:IsA("ScreenGui") and gui ~= ScreenGui and gui.Enabled then
-                table.insert(hiddenGuis, gui) gui.Enabled = false
+                table.insert(hiddenGuis, gui)
+                gui.Enabled = false
             end
         end
     else
         for _, gui in ipairs(hiddenGuis) do
-            if gui and gui.Parent then gui.Enabled = true end
+            if gui and gui.Parent then
+                gui.Enabled = true
+            end
         end
         hiddenGuis = {}
     end
 end
 
-local function updateSpeedLabel()
-    SpeedLabel.Text = "Speed: " .. string.format("%.1f", cameraSpeed) .. " | Zoom: " .. math.floor(camera.FieldOfView)
+-- UTILS
+local function getTarget(name)
+    if not name or name == "" then return nil end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if string.find(string.lower(p.DisplayName), string.lower(name)) or string.find(string.lower(p.Name), string.lower(name)) then return p end
+    end
+    return nil
 end
 
--- CAMERA RENDER LOOP
+-- CAMERA LOOP
 RunService.RenderStepped:Connect(function(dt)
+    -- Logika Lerp FOV selalu jalan agar transisi halus, baik saat ON atau saat dimatikan
+    camera.FieldOfView = camera.FieldOfView + (targetFOV - camera.FieldOfView) * normalSmooth
+    
     if not freecamEnabled then return end
     
-    local moveVector = Vector3.new(0, 0, 0)
+    local isShiftDown = UserInputService:IsKeyDown(Enum.KeyCode.LeftShift)
+    local moveSmooth = isShiftDown and shiftSmooth or normalSmooth
+    local rotSmooth = isShiftDown and (sensitivity * 0.4) or sensitivity
     
-    -- Horizontal Movement
+    local moveVector = Vector3.new(0, 0, 0)
     if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + targetCFrame.LookVector end
     if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector - targetCFrame.LookVector end
     if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector - targetCFrame.RightVector end
     if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + targetCFrame.RightVector end
-    
-    -- Vertical Movement (Q & E)
     if UserInputService:IsKeyDown(Enum.KeyCode.E) then moveVector = moveVector + Vector3.new(0, 1, 0) end
     if UserInputService:IsKeyDown(Enum.KeyCode.Q) then moveVector = moveVector - Vector3.new(0, 1, 0) end
     
-    local multiplier = UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) and 4 or 1
-    local finalSpeed = (cameraSpeed * 50) * multiplier
+    local nextPos = targetCFrame.Position + (moveVector * (cameraSpeed * 50) * dt)
     
-    -- Update Target Position
-    local nextPos = targetCFrame.Position + (moveVector * finalSpeed * dt)
-    
-    if followEnabled and targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local targetHrp = targetPlayer.Character.HumanoidRootPart
-        targetCFrame = CFrame.lookAt(nextPos, targetHrp.Position)
+    if symLockEnabled and targetPlayer1 and targetPlayer2 and targetPlayer1.Character and targetPlayer2.Character then
+        local p1 = targetPlayer1.Character:FindFirstChild("HumanoidRootPart")
+        local p2 = targetPlayer2.Character:FindFirstChild("HumanoidRootPart")
+        if p1 and p2 then
+            local midPoint = (p1.Position + p2.Position) / 2
+            targetCFrame = CFrame.lookAt(nextPos, midPoint)
+        end
+    elseif followEnabled and targetPlayer1 and targetPlayer1.Character then
+        local char = targetPlayer1.Character
+        local lookPart = (followMode == "HEAD" and char:FindFirstChild("Head")) or (followMode == "BODY" and char:FindFirstChild("HumanoidRootPart"))
+        if lookPart then
+            targetCFrame = CFrame.lookAt(nextPos, lookPart.Position)
+        else
+            targetCFrame = CFrame.new(nextPos) * CFrame.fromOrientation(math.rad(pan.Y), math.rad(pan.X), 0)
+        end
     else
         if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
             UserInputService.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
             local delta = UserInputService:GetMouseDelta()
-            pan = pan - (delta * sensitivity * 0.1)
+            pan = pan - (delta * rotSmooth * 0.1)
         else
             UserInputService.MouseBehavior = Enum.MouseBehavior.Default
         end
         targetCFrame = CFrame.new(nextPos) * CFrame.fromOrientation(math.rad(pan.Y), math.rad(pan.X), 0)
     end
     
-    -- SMOOTH LERP: Menggerakkan kamera asli ke targetCFrame secara halus
-    camera.CFrame = camera.CFrame:Lerp(targetCFrame, smoothness)
+    camera.CFrame = camera.CFrame:Lerp(targetCFrame, moveSmooth)
+    SpeedLabel.Text = "Speed: " .. string.format("%.1f", cameraSpeed) .. " | Zoom: " .. math.floor(camera.FieldOfView) .. (isShiftDown and " [CINEMATIC]" or "")
 end)
 
--- BUTTON ACTIONS
+-- BUTTONS
 ToggleBtn.MouseButton1Click:Connect(function()
     freecamEnabled = not freecamEnabled
     ToggleBtn.Text = freecamEnabled and "Freecam: ON" or "Freecam: OFF"
     ToggleBtn.BackgroundColor3 = freecamEnabled and Theme.Colors.ToggleOn or Theme.Colors.Button
+    local char = localPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
     
-    local character = localPlayer.Character
-    local hrp = character and character:FindFirstChild("HumanoidRootPart")
-
     if freecamEnabled then
         targetCFrame = camera.CFrame
+        targetFOV = camera.FieldOfView
         camera.CameraType = Enum.CameraType.Scriptable
         pan = Vector2.new(camera.CFrame:ToOrientation())
-        
-        Controls:Disable() 
-        if hrp then hrp.Anchored = true end 
-        setOtherUIVisible(false) 
+        Controls:Disable()
+        if hrp then hrp.Anchored = true end
+        setOtherUIVisible(false)
     else
+        -- RESET KE DEFAULT SAAT OFF
+        targetFOV = defaultFOV 
         camera.CameraType = Enum.CameraType.Custom
-        camera.FieldOfView = defaultFOV 
+        Controls:Enable()
+        if hrp then hrp.Anchored = false end
+        setOtherUIVisible(true)
         followEnabled = false
-        FollowBtn.Text = "Follow Target: OFF"
-        FollowBtn.BackgroundColor3 = Theme.Colors.Button
-        
-        Controls:Enable() 
-        if hrp then hrp.Anchored = false end 
-        setOtherUIVisible(true) 
-        updateSpeedLabel()
+        symLockEnabled = false
     end
 end)
 
+-- LOGIKA BUTTON LAIN TETAP SAMA
 FollowBtn.MouseButton1Click:Connect(function()
     if not freecamEnabled then return end
-    targetPlayer = findTargetByDisplayName(NameInput.Text)
-    
-    if targetPlayer then
+    targetPlayer1 = getTarget(NameInput1.Text)
+    if targetPlayer1 then
         followEnabled = not followEnabled
-        FollowBtn.Text = followEnabled and "Lock: " .. targetPlayer.DisplayName or "Follow Target: OFF"
+        symLockEnabled = false
+        FollowBtn.Text = followEnabled and "One-Shot: ACTIVE" or "One-Shot Follow: OFF"
         FollowBtn.BackgroundColor3 = followEnabled and Theme.Colors.ToggleOn or Theme.Colors.Button
-    else
-        FollowBtn.Text = "NOT FOUND"
-        task.wait(1)
-        FollowBtn.Text = "Follow Target: OFF"
+        SymmetricalBtn.Text = "Symmetrical Lock: OFF"; SymmetricalBtn.BackgroundColor3 = Theme.Colors.Button
     end
 end)
 
--- INPUT LOGIC
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe and input.KeyCode ~= Enum.KeyCode.N then return end 
-    
-    if input.KeyCode == Enum.KeyCode.N then
-        ScreenGui.Enabled = not ScreenGui.Enabled
-    end
-
-    if input.KeyCode == Enum.KeyCode.Up then
-        cameraSpeed = math.clamp(cameraSpeed + 0.1, 0.1, 20)
-        updateSpeedLabel()
-    elseif input.KeyCode == Enum.KeyCode.Down then
-        cameraSpeed = math.clamp(cameraSpeed - 0.1, 0.1, 20)
-        updateSpeedLabel()
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
+ControllFollowBtn.MouseButton1Click:Connect(function()
     if not freecamEnabled then return end
-    
-    if input.UserInputType == Enum.UserInputType.MouseWheel then
-        local zoomDelta = input.Position.Z * 2
-        camera.FieldOfView = math.clamp(camera.FieldOfView - zoomDelta, 5, 120)
-        updateSpeedLabel()
+    if followMode == "OFF" then followMode = "HEAD" elseif followMode == "HEAD" then followMode = "BODY" else followMode = "OFF" end
+    ControllFollowBtn.Text = "Focus: " .. followMode
+    ControllFollowBtn.BackgroundColor3 = (followMode ~= "OFF") and Theme.Colors.ToggleOn or Theme.Colors.Button
+end)
+
+SymmetricalBtn.MouseButton1Click:Connect(function()
+    if not freecamEnabled then return end
+    targetPlayer1 = getTarget(NameInput1.Text); targetPlayer2 = getTarget(NameInput2.Text)
+    if targetPlayer1 and targetPlayer2 then
+        symLockEnabled = not symLockEnabled
+        followEnabled = false
+        SymmetricalBtn.Text = symLockEnabled and "Sym Lock: ACTIVE" or "Symmetrical Lock: OFF"
+        SymmetricalBtn.BackgroundColor3 = symLockEnabled and Theme.Colors.ToggleOn or Theme.Colors.Button
+        FollowBtn.Text = "One-Shot Follow: OFF"; FollowBtn.BackgroundColor3 = Theme.Colors.Button
+    end
+end)
+
+-- INPUTS
+UserInputService.InputBegan:Connect(function(i, g)
+    if i.KeyCode == Enum.KeyCode.N then 
+        ScreenGui.Enabled = not ScreenGui.Enabled 
+    end
+    if g then return end 
+    if i.KeyCode == Enum.KeyCode.Up then cameraSpeed = math.clamp(cameraSpeed + 0.1, 0.1, 20)
+    elseif i.KeyCode == Enum.KeyCode.Down then cameraSpeed = math.clamp(cameraSpeed - 0.1, 0.1, 20) end
+end)
+
+UserInputService.InputChanged:Connect(function(i)
+    if not freecamEnabled then return end
+    if i.UserInputType == Enum.UserInputType.MouseWheel then
+        targetFOV = math.clamp(targetFOV - (i.Position.Z * 5), 5, 120)
     end
 end)
